@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assura-frontend
+  labels:
+    {{- include "assura-frontend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "assura-frontend.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "assura-frontend.labels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      # nginx's docker-entrypoint.d/20-envsubst-config.sh writes assets/env.js at container
+      # startup, which readOnlyRootFilesystem (kept true here, matching the "restricted" PSS
+      # profile everywhere) would otherwise block. This initContainer copies the image's
+      # baked-in assets/ (fonts, images, env.template.js) into a writable emptyDir that the main
+      # container then mounts over the same path — the standard pattern for templated static
+      # content under a read-only root, rather than relaxing readOnlyRootFilesystem just here.
+      initContainers:
+        - name: seed-assets
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["sh", "-c", "cp -r /usr/share/nginx/html/assets/. /work/assets/"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: assets
+              mountPath: /work/assets
+      containers:
+        - name: assura-frontend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: assets
+              mountPath: /usr/share/nginx/html/assets
+            - name: nginx-generated
+              mountPath: /etc/nginx/generated
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: assets
+          emptyDir: {}
+        # Holds the CSP config rendered by docker-entrypoint.d/20-envsubst-config.sh at startup —
+        # its connect-src depends on API_URL (see that script's comment), so it can't be baked
+        # into the image at build time the way most of nginx.conf is.
+        - name: nginx-generated
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

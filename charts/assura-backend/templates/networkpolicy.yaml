@@ -1,0 +1,47 @@
+# Default-deny plus explicit allows. Ingress is scoped to the VPC CIDR, not a pod selector:
+# Angular is a client-side SPA (runs in the browser), so backend traffic arrives via the ALB's
+# ENIs — which live in the VPC's subnets, not the cluster's pod network — rather than from the
+# frontend pod directly. Egress to AWS APIs (RDS/S3/Secrets Manager/KMS) is left broad on purpose:
+# those service IPs aren't stable enough for NetworkPolicy-level pinning to be practical, so the
+# real access control for them is the VPC Security Groups (see assura-infra/modules/rds) and IAM
+# (see assura-infra/modules/iam-irsa), not this policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: assura-backend
+  labels:
+    {{- include "assura-backend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "assura-backend.labels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.network.vpcCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.network.vpcCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: 3306 # RDS
+    - ports:
+        - protocol: TCP
+          port: 443 # AWS APIs (S3, Secrets Manager, KMS) — destination IPs not practical to pin

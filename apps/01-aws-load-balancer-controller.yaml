@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 1.10.0
+    helm:
+      values: |
+        clusterName: assura-demo-eks
+        serviceAccount:
+          create: true
+          name: aws-load-balancer-controller
+          annotations:
+            # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
+            eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-aws-load-balancer-controller"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

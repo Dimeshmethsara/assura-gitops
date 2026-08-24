@@ -1,0 +1,33 @@
+# Ingress from the ALB's ENIs (VPC CIDR), same reasoning as assura-backend's NetworkPolicy.
+# No AWS-API egress needed here (the frontend never talks to AWS directly) beyond DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: assura-frontend
+  labels:
+    {{- include "assura-frontend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "assura-frontend.labels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.network.vpcCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

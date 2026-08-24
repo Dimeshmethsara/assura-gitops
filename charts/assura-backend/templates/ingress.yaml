@@ -1,0 +1,38 @@
+# group.name (shared with assura-frontend's Ingress) makes the AWS Load Balancer Controller
+# consolidate both Ingress resources into a single ALB — avoids paying for two ALBs
+# (~$16/mo each) for what's really one application.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: assura-backend
+  labels:
+    {{- include "assura-backend.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName }}
+    # Lower order = evaluated first: these specific paths must win over the frontend's catch-all
+    # "/" (group.order: "10" there) rather than depending on implicit path-specificity ordering.
+    alb.ingress.kubernetes.io/group.order: "1"
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: assura-backend
+                port:
+                  number: 8080
+          - path: /uploads
+            pathType: Prefix
+            backend:
+              service:
+                name: assura-backend
+                port:
+                  number: 8080

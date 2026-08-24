@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://fluent.github.io/helm-charts
+    chart: fluent-bit
+    targetRevision: 0.47.10
+    helm:
+      values: |
+        serviceAccount:
+          create: true
+          name: fluent-bit
+          annotations:
+            # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
+            eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-fluent-bit"
+        config:
+          outputs: |
+            [OUTPUT]
+                Name cloudwatch_logs
+                Match *
+                region us-east-1
+                log_group_name /assura-demo/containers
+                log_stream_prefix from-fluent-bit-
+                auto_create_group true
+                log_retention_days 7
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

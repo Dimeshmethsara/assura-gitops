@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kyverno-policies
+description: Baseline ClusterPolicy set for the assura cluster
+type: application
+version: 0.1.0

@@ -1,0 +1,153 @@
+# Scoped to the assura-app namespace only, not cluster-wide: these rules encode THIS
+# application's security posture. Applying them cluster-wide would also gate every third-party
+# operator/platform chart (Kyverno itself, External Secrets, Jenkins agents, Fluent Bit, etc.),
+# none of which this project controls or has individually audited for compliance with rules like
+# "no :latest tag" or "only pull from our two ECR repos" — that would just cause constant,
+# unrelated admission failures on routine platform-chart upgrades.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-non-root
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Containers in assura-app must set securityContext.runAsNonRoot: true."
+        pattern:
+          spec:
+            # No anchor here deliberately: this must be present and true, not merely valid-if-present
+            # (the `=()` conditional anchor would let a pod with no securityContext at all pass).
+            securityContext:
+              runAsNonRoot: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privilege-escalation
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: disallow-privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Containers in assura-app must set securityContext.allowPrivilegeEscalation: false."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ro-rootfs
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-read-only-root-filesystem
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Containers in assura-app must set securityContext.readOnlyRootFilesystem: true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Images in assura-app must include an explicit tag."
+        pattern:
+          spec:
+            containers:
+              - image: "*:*"
+    - name: disallow-latest-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Images in assura-app must not use the mutable :latest tag. The CI pipeline only ever produces git-SHA-tagged images, so this is always satisfiable."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: only-allow-project-ecr
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Images in assura-app must come from this project's ECR repositories."
+        pattern:
+          spec:
+            containers:
+              - image: "CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/assura-demo-*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-cpu-memory-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [assura-app]
+      validate:
+        message: "Every container in assura-app must declare CPU and memory requests and limits."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"

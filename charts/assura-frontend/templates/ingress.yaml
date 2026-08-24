@@ -1,0 +1,28 @@
+# Same group.name as assura-backend's Ingress — merged by the AWS Load Balancer Controller into
+# one shared ALB. This one owns "/" (catch-all), so it must exist in the same group with a lower
+# route priority than the backend's more specific /api and /uploads paths.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: assura-frontend
+  labels:
+    {{- include "assura-frontend.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName }}
+    alb.ingress.kubernetes.io/group.order: "10"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: assura-frontend
+                port:
+                  number: 8080

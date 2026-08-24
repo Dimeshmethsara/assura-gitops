@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assura-backend
+  labels:
+    {{- include "assura-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "assura-backend.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "assura-backend.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: assura-backend
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: assura-backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: STORAGE__S3__BUCKETNAME
+              value: {{ .Values.s3.bucketName | quote }}
+            - name: JWT_ISSUER
+              value: "AssuraBackend"
+            - name: JWT_AUDIENCE
+              value: "AssuraApp"
+          envFrom:
+            - secretRef:
+                name: assura-backend-db-credentials
+            - secretRef:
+                name: assura-backend-jwt
+          volumeMounts:
+            # Uploads now go to S3 and logs go to stdout (see AssuraBackend Phase 1 changes), so
+            # the only thing this process ever writes locally is transient .NET temp state —
+            # readOnlyRootFilesystem stays true, backed by this one writable emptyDir.
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+      volumes:
+        - name: tmp
+          emptyDir: {}

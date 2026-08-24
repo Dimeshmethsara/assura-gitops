@@ -1,0 +1,26 @@
+replicaCount: 2
+
+image:
+  repository: CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/assura-demo-frontend
+  # tag comes from values-image.yaml — the one field Jenkins ever edits.
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+env:
+  # Same-origin relative path: the ALB routes /api to the backend service (see
+  # assura-backend's ingress.yaml), so the browser never needs an absolute cross-origin URL —
+  # keeps the nginx CSP's connect-src 'self' valid with no further configuration.
+  API_URL: "/api"
+
+ingress:
+  groupName: assura
+  host: assura.example.com # CHANGE ME — must match assura-backend's values.yaml ingress.host
+
+network:
+  vpcCidr: "10.60.0.0/16"

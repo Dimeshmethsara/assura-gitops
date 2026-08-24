@@ -1,0 +1,47 @@
+# Deliberately plain GitHub Actions, not Jenkins-in-EKS: linting rendered Helm/YAML doesn't need
+# cluster compute, and free GH-hosted runners mean gitops-repo PRs can still be validated even
+# while the demo cluster is fully torn down between interviews (see assura-infra/scripts).
+name: Validate manifests
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install helm
+        uses: azure/setup-helm@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Install kube-linter
+        run: |
+          curl -sSL https://github.com/stackrox/kube-linter/releases/latest/download/kube-linter-linux.tar.gz | tar xz
+          sudo mv kube-linter /usr/local/bin/
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Render + validate assura-backend
+        run: |
+          helm template charts/assura-backend -f charts/assura-backend/values.yaml -f charts/assura-backend/values-image.yaml > /tmp/backend-rendered.yaml
+          kubeconform -strict -kubernetes-version 1.31.0 -ignore-missing-schemas /tmp/backend-rendered.yaml
+          kube-linter lint /tmp/backend-rendered.yaml
+
+      - name: Render + validate assura-frontend
+        run: |
+          helm template charts/assura-frontend -f charts/assura-frontend/values.yaml -f charts/assura-frontend/values-image.yaml > /tmp/frontend-rendered.yaml
+          kubeconform -strict -kubernetes-version 1.31.0 -ignore-missing-schemas /tmp/frontend-rendered.yaml
+          kube-linter lint /tmp/frontend-rendered.yaml
+
+      - name: Validate bootstrap + apps manifests
+        run: |
+          kubeconform -strict -kubernetes-version 1.31.0 -ignore-missing-schemas bootstrap/root-app.yaml apps/*.yaml manifests/namespaces/*.yaml

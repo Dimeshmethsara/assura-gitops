@@ -1,0 +1,56 @@
+replicaCount: 2
+
+image:
+  repository: CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/assura-demo-backend
+  # tag comes from values-image.yaml — the one field Jenkins ever edits.
+
+serviceAccount:
+  # CHANGE ME: see the note in assura-gitops/apps/01-external-secrets.yaml — same
+  # one-time-per-account value, from assura-infra's iam_irsa.role_arns["backend"] output.
+  roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-backend"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+env:
+  ASPNETCORE_ENVIRONMENT: Production
+  ALLOWED_ORIGINS: "https://assura.example.com" # CHANGE ME to the real frontend origin
+  STORAGE__PROVIDER: S3
+
+secretsManager:
+  # ARN comes from assura-infra's rds.secret_arn output — ExternalSecretsOperator reads it.
+  dbCredentialsSecretArn: "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:assura-demo/db-credentials"
+  jwtSecretArn: "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:assura-demo/jwt"
+
+s3:
+  bucketName: "assura-demo-uploads-<AWS_ACCOUNT_ID>"
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+ingress:
+  groupName: assura
+  host: assura.example.com # CHANGE ME
+
+network:
+  # NetworkPolicy ingress is scoped to this CIDR, not a frontend-pod selector: Angular runs
+  # client-side in the browser, so backend traffic arrives via the ALB's ENIs (which live in the
+  # VPC, not the pod network) rather than pod-to-pod. Must match assura-infra's vpc_cidr.
+  vpcCidr: "10.60.0.0/16"

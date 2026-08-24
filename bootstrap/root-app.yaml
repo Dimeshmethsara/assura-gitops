@@ -1,0 +1,28 @@
+# The one manifest Terraform applies directly (see assura-infra/environments/demo/main.tf).
+# Everything else in this repo's apps/ directory becomes a child Application of this one —
+# the App-of-Apps pattern. From here on, ArgoCD is the only thing that touches the cluster;
+# Terraform and humans never run `kubectl apply` against workload manifests again.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Dimeshmethsara/assura-gitops.git
+    targetRevision: main
+    path: apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

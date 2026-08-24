@@ -1,0 +1,48 @@
+# Runs the same image with MIGRATE_ONLY=true as a Helm pre-upgrade/pre-install hook — exactly
+# one runner applies pending EF Core migrations before the Deployment above rolls, eliminating
+# the race from every replica auto-migrating on boot (see AssuraBackend Phase 1 changes).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: assura-backend-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "assura-backend.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-weight": "0"
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "assura-backend.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: assura-backend
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: MIGRATE_ONLY
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: assura-backend-db-credentials
+            - secretRef:
+                name: assura-backend-jwt
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,126 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jenkins.io
+    chart: jenkins
+    targetRevision: 5.7.15
+    helm:
+      values: |
+        controller:
+          # RBAC scoped to managing pods in jenkins-agents only — deliberately NOT cluster-admin,
+          # the most common Jenkins-in-Kubernetes misconfiguration. serviceAccount below carries
+          # no AWS IRSA role: the controller itself never touches AWS; only agent pods do.
+          serviceAccount:
+            create: true
+            name: jenkins-controller
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: 1, memory: 1Gi }
+          installPlugins:
+            - kubernetes:4321.v237fdf20ce16
+            - workflow-aggregator:600.vb_57cdd26fdd7
+            - git:5.4.1
+            - configuration-as-code:1878.v2a_a_5f66ce35b_
+          JCasC:
+            defaultConfig: true
+            configScripts:
+              # Ephemeral, per-stage agent pods — one Jenkins build never leaves a long-lived
+              # agent sitting around; capacity scales to zero when nothing is building.
+              kubernetes-cloud: |
+                jenkins:
+                  clouds:
+                    - kubernetes:
+                        name: "kubernetes"
+                        namespace: "jenkins-agents"
+                        jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+                        containerCapStr: "10"
+                        podTemplates:
+                          - name: "dotnet-sdk"
+                            label: "dotnet-sdk"
+                            containers:
+                              - name: "dotnet-sdk"
+                                image: "mcr.microsoft.com/dotnet/sdk:8.0"
+                                command: "sleep"
+                                args: "99d"
+                          - name: "node"
+                            label: "node"
+                            containers:
+                              - name: "node"
+                                image: "node:22-alpine"
+                                command: "sleep"
+                                args: "99d"
+                          - name: "kaniko"
+                            label: "kaniko"
+                            serviceAccount: "jenkins-agent"
+                            containers:
+                              - name: "kaniko"
+                                image: "gcr.io/kaniko-project/executor:v1.23.2-debug"
+                                command: "sleep"
+                                args: "9999999"
+                          - name: "trivy"
+                            label: "trivy"
+                            containers:
+                              - name: "trivy"
+                                image: "aquasec/trivy:0.56.2"
+                                command: "sleep"
+                                args: "99d"
+                          - name: "syft-cosign"
+                            label: "syft-cosign"
+                            serviceAccount: "jenkins-agent"
+                            containers:
+                              # Plain Alpine, not the official syft/cosign images: both of those
+                              # are shell-less/distroless (verified directly — neither has `sh`
+                              # or a standalone `sleep`), so the usual "sleep as keep-alive so
+                              # Jenkins can exec into it" pattern can't work on them at all. The
+                              # Jenkinsfile fetches the syft/cosign binaries onto this container
+                              # at pipeline runtime instead, the same way it already does for yq.
+                              - name: "syft-cosign"
+                                image: "alpine:3.20"
+                                command: "sleep"
+                                args: "99d"
+                          - name: "git"
+                            label: "git"
+                            # Needs AWS access too: this pod fetches the GitHub push credential
+                            # from Secrets Manager at pipeline runtime (see the Jenkinsfiles'
+                            # "Update GitOps manifest" stage) rather than storing it in Jenkins's
+                            # own credential store — same IRSA role as kaniko/syft-cosign, whose
+                            # policy also grants secretsmanager:GetSecretValue on just that one
+                            # secret (see assura-infra/modules/iam-irsa).
+                            serviceAccount: "jenkins-agent"
+                            containers:
+                              - name: "git"
+                                image: "alpine/git:2.47.1"
+                                command: "sleep"
+                                args: "99d"
+        agent:
+          # The chart's own default "jnlp" agent pod (used only for lightweight orchestration
+          # steps) still needs its own service account tied to the jenkins-agent IRSA role for
+          # ECR auth + cosign KMS signing.
+          serviceAccount: "jenkins-agent"
+        persistence:
+          size: 8Gi
+      extraObjects:
+        - apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: jenkins-agent
+            namespace: jenkins-agents
+            annotations:
+              # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
+              eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-jenkins-agent"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

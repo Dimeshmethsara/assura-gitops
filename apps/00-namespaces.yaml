@@ -1,0 +1,25 @@
+# Wave 0: plain Namespace objects, not a Helm chart — needed ahead of everything else so that
+# assura-app carries the Pod Security Standards "restricted" enforcement label from the moment
+# any workload lands in it (ArgoCD's generic CreateNamespace=true sync option creates a bare
+# namespace with no labels, which isn't enough here).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-namespaces
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Dimeshmethsara/assura-gitops.git
+    targetRevision: main
+    path: manifests/namespaces
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 66.3.1
+    helm:
+      values: |
+        # Cost-conscious defaults for a demo cluster, not a production monitoring stack:
+        # short retention, no external persistent volumes beyond what's needed to survive a
+        # normal pod restart, single replica everywhere.
+        prometheus:
+          prometheusSpec:
+            retention: 3d
+            resources:
+              requests: { cpu: 100m, memory: 512Mi }
+              limits: { cpu: 500m, memory: 1Gi }
+        grafana:
+          # adminPassword deliberately omitted: the chart auto-generates one and stores it in a
+          # Secret (kubectl get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}'
+          # | base64 -d) — an empty string here would set a literal blank password instead.
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 200m, memory: 256Mi }
+        alertmanager:
+          enabled: false # no on-call/paging for a portfolio demo — Grafana dashboards are the point
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
