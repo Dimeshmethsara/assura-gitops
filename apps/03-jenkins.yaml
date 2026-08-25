@@ -10,7 +10,13 @@ spec:
   source:
     repoURL: https://charts.jenkins.io
     chart: jenkins
-    targetRevision: 5.7.15
+    # 5.9.54 ships Jenkins core 2.568.2. Was 5.7.15 (core 2.479.2), which could not boot: the
+    # pinned plugins below resolve their *transitive* dependencies to whatever the update centre
+    # currently serves, and those now require a newer core. The init container failed the install
+    # outright with a wall of "requires a greater version of Jenkins (2.504.3) than 2.479.2",
+    # leaving jenkins-0 in Init:CrashLoopBackOff. Pinning a plugin does not pin its dependency
+    # tree, so the controller image has to stay ahead of what those dependencies demand.
+    targetRevision: 5.9.54
     helm:
       values: |
         controller:
