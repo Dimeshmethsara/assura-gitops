@@ -59,7 +59,8 @@ hpa:
 
 ingress:
   groupName: assura
-  host: assura.example.com # CHANGE ME
+  # Empty = matches any Host; must stay in sync with assura-frontend's values.yaml ingress.host.
+  host: ""
 
 network:
   # NetworkPolicy ingress is scoped to this CIDR, not a frontend-pod selector: Angular runs

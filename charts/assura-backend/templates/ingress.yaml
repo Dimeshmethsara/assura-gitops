@@ -8,7 +8,6 @@ metadata:
   labels:
     {{- include "assura-backend.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName }}
@@ -18,9 +17,18 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-path: /health/ready
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
+  # Replaces the deprecated kubernetes.io/ingress.class annotation the ALB controller warns about.
+  ingressClassName: alb
   rules:
+    # Optional host — see the equivalent comment in assura-frontend's ingress.yaml. Both charts
+    # must agree: if one pins a host and the other does not, the shared ALB serves one of them a
+    # 404 depending on which Host header the browser sends.
+    {{- if .Values.ingress.host }}
     - host: {{ .Values.ingress.host | quote }}
       http:
+    {{- else }}
+    - http:
+    {{- end }}
         paths:
           - path: /api
             pathType: Prefix

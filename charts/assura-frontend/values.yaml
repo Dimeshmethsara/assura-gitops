@@ -20,7 +20,9 @@ env:
 
 ingress:
   groupName: assura
-  host: assura.example.com # CHANGE ME — must match assura-backend's values.yaml ingress.host
+  # Empty = the Ingress rule matches any Host, so the ALB's own DNS name is browsable directly.
+  # Set this (and assura-backend's, which must match) only once a real domain points at the ALB.
+  host: ""
 
 network:
   vpcCidr: "10.60.0.0/16"

@@ -8,16 +8,26 @@ metadata:
   labels:
     {{- include "assura-frontend.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName }}
     alb.ingress.kubernetes.io/group.order: "10"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
+  # Replaces the deprecated kubernetes.io/ingress.class annotation the ALB controller warns about.
+  ingressClassName: alb
   rules:
+    # `host` is optional on purpose. When set, the rule only matches that Host header — which
+    # means a browser pointed straight at the ALB's own DNS name matches nothing and gets a 404,
+    # since it sends the ALB hostname as Host, not assura.example.com. Leaving ingress.host empty
+    # emits a host-less rule that matches ANY Host, so the raw ALB DNS is directly browsable.
+    # Set a real hostname here once there is a real domain in Route53 fronting this ALB.
+    {{- if .Values.ingress.host }}
     - host: {{ .Values.ingress.host | quote }}
       http:
+    {{- else }}
+    - http:
+    {{- end }}
         paths:
           - path: /
             pathType: Prefix
