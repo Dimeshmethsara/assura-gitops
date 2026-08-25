@@ -29,11 +29,24 @@ spec:
           resources:
             requests: { cpu: 250m, memory: 512Mi }
             limits: { cpu: 1, memory: 1Gi }
+          # Intentionally unpinned. These were pinned to exact versions, which does NOT pin their
+          # dependency trees — the plugin manager still resolves transitive deps to latest, and
+          # the two sets drifted apart until installation failed outright:
+          #   "Plugin git:5.4.1 (via git-client:6.6.1) depends on configuration-as-code:2036...,
+          #    but there is an older version defined on the top level - configuration-as-code:1878..."
+          # Partial pinning is strictly worse than none: it produces an unsatisfiable set rather
+          # than a reproducible one. Reproducibility here comes from the pinned chart version
+          # (5.9.54 → core 2.568.2) instead, which bounds what the resolver can pick.
+          #
+          # The production-grade answer is a lockfile: run jenkins-plugin-manager to resolve the
+          # full closure once, commit the generated plugins.txt, and bake it into a custom
+          # controller image. That is real work for a demo cluster and is noted as a follow-up
+          # rather than done here.
           installPlugins:
-            - kubernetes:4321.v237fdf20ce16
-            - workflow-aggregator:600.vb_57cdd26fdd7
-            - git:5.4.1
-            - configuration-as-code:1878.v2a_a_5f66ce35b_
+            - kubernetes
+            - workflow-aggregator
+            - git
+            - configuration-as-code
           JCasC:
             defaultConfig: true
             configScripts:

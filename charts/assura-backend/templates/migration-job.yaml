@@ -45,6 +45,14 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          # Required by the require-resource-limits ClusterPolicy, which applies to every pod in
+          # assura-app — Jobs included. Omitting these got this Job rejected at admission:
+          # "validation error: Every container in assura-app must declare CPU and memory requests
+          # and limits ... failed at path /spec/template/spec/containers/0/resources/limits/".
+          # Reuses the Deployment's values rather than introducing a second knob: the migration
+          # runs the same image and is short-lived, so its ceiling only needs to be sane.
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           env:
             - name: MIGRATE_ONLY
               value: "true"
