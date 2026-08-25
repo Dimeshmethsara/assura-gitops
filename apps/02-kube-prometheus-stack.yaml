@@ -40,3 +40,9 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # Same 256KB last-applied-configuration annotation cap as kyverno's Application (see the
+      # comment there) — the prometheus-operator CRDs (Prometheus/Alertmanager) are similarly
+      # oversized. Confirmed live: `kubectl get crd` showed only the small monitoring.coreos.com
+      # CRDs (podmonitors, probes, prometheusrules, servicemonitors) landed; prometheuses and
+      # alertmanagers did not, which is why this Application showed Missing.
+      - ServerSideApply=true
