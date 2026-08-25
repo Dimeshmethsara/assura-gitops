@@ -9,6 +9,18 @@ serviceAccount:
   # one-time-per-account value, from assura-infra's iam_irsa.role_arns["backend"] output.
   roleArn: "arn:aws:iam::187691954427:role/assura-demo-backend"
 
+security:
+  # UID/GID of the `app` user inside mcr.microsoft.com/dotnet/aspnet:8.0-noble-chiseled
+  # (its $APP_UID; verified as app:x:1654:1654 in the image's /etc/passwd).
+  #
+  # Set explicitly here rather than inherited from the image, because runAsNonRoot alone is not
+  # enough: the kubelet cannot see inside the image, so if the image's USER is a name instead of
+  # a number it refuses to start the container at all ("image has non-numeric user (app), cannot
+  # verify user is non-root"). Pinning the number in the manifest makes the pod's identity
+  # explicit and independent of how the image happens to declare it.
+  runAsUser: 1654
+  runAsGroup: 1654
+
 resources:
   requests:
     cpu: 100m

@@ -60,7 +60,13 @@ spec:
                         namespace: "jenkins-agents"
                         jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
                         containerCapStr: "10"
-                        podTemplates:
+                        # `templates`, not `podTemplates`: JCasC derives its schema from the
+                        # KubernetesCloud setters, and the property is setTemplates(). Using
+                        # podTemplates aborted Jenkins startup entirely rather than being
+                        # ignored — "UnknownAttributesException: kubernetes: Invalid
+                        # configuration elements for type: ...KubernetesCloud : podTemplates",
+                        # which fails the whole InitReactor and crashloops the controller.
+                        templates:
                           - name: "dotnet-sdk"
                             label: "dotnet-sdk"
                             containers:
