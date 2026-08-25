@@ -1,4 +1,4 @@
 # The ONE field Jenkins ever edits (via `yq` in the pipeline, see AssuraBackend/Jenkinsfile) —
 # isolating CI's blast radius on this repo to a single line.
 image:
-  tag: "unset"
+  tag: "v1"
