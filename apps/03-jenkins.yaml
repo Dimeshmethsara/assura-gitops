@@ -47,6 +47,11 @@ spec:
             - workflow-aggregator
             - git
             - configuration-as-code
+            # job-dsl backs the `jobs:` block in JCasC below. Without it the controller boots with
+            # a working agent cloud but zero pipelines — which is exactly what happened: the UI
+            # showed "Build History of Jenkins" with nothing in it, because nothing had ever
+            # defined a job.
+            - job-dsl
           JCasC:
             defaultConfig: true
             configScripts:
@@ -124,6 +129,48 @@ spec:
                                 image: "alpine/git:2.47.1"
                                 command: "sleep"
                                 args: "99d"
+              # Pipelines defined as code, so a rebuilt controller comes back with its jobs
+              # already present — the same disposability argument as the rest of this JCasC
+              # config. Creating them by hand in the UI would make the controller a pet again:
+              # the one thing this setup is trying to avoid.
+              #
+              # Both repos are public, so no SCM credential is needed to CLONE. The push back to
+              # assura-gitops at the end of each pipeline still uses the GitHub PAT the agent
+              # reads from Secrets Manager via its IRSA role.
+              seed-jobs: |
+                jobs:
+                  - script: |
+                      pipelineJob('assura-backend') {
+                        description('Backend CI: gitleaks, SAST, SCA, tests, kaniko build, Trivy, SBOM, cosign, then bump the image tag in assura-gitops.')
+                        definition {
+                          cpsScm {
+                            scm {
+                              git {
+                                remote { url('https://github.com/System-Street-Studio/AssuraBackend.git') }
+                                branch('feature/my-changes-dimesh')
+                              }
+                            }
+                            scriptPath('Jenkinsfile')
+                            lightweight(true)
+                          }
+                        }
+                      }
+                  - script: |
+                      pipelineJob('assura-frontend') {
+                        description('Frontend CI: gitleaks, ESLint, Semgrep, npm audit, Karma, kaniko build, Trivy, SBOM, cosign, then bump the image tag in assura-gitops.')
+                        definition {
+                          cpsScm {
+                            scm {
+                              git {
+                                remote { url('https://github.com/System-Street-Studio/assura-frontend.git') }
+                                branch('feature/my-changes-dimesh')
+                              }
+                            }
+                            scriptPath('Jenkinsfile')
+                            lightweight(true)
+                          }
+                        }
+                      }
         agent:
           # The chart's own default "jnlp" agent pod (used only for lightweight orchestration
           # steps) still needs its own service account tied to the jenkins-agent IRSA role for
