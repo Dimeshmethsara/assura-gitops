@@ -16,7 +16,7 @@ cluster**. Jenkins pushes images and edits one line in this repo; it never runs 
 ## Before this actually works: fill in the placeholders
 
 This repo intentionally contains **no real secrets or account-specific values** — only
-placeholders (`<AWS_ACCOUNT_ID>`, `CHANGE_ME...`) marked with `# CHANGE ME` comments. After
+placeholders (`187691954427`, `CHANGE_ME...`) marked with `# CHANGE ME` comments. After
 `assura-infra`'s first `terraform apply`, replace every one of them using the mapping in
 `assura-infra/README.md`. This is a one-time bootstrap step per AWS account, done once and
 committed — these are account constants (IAM role ARNs, ECR URLs, Secrets Manager ARNs), not

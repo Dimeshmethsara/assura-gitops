@@ -114,7 +114,7 @@ spec:
             namespace: jenkins-agents
             annotations:
               # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
-              eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-jenkins-agent"
+              eks.amazonaws.com/role-arn: "arn:aws:iam::187691954427:role/assura-demo-jenkins-agent"
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins

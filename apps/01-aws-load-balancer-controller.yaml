@@ -19,7 +19,7 @@ spec:
           name: aws-load-balancer-controller
           annotations:
             # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
-            eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-aws-load-balancer-controller"
+            eks.amazonaws.com/role-arn: "arn:aws:iam::187691954427:role/assura-demo-aws-load-balancer-controller"
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

@@ -18,7 +18,7 @@ spec:
           name: fluent-bit
           annotations:
             # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
-            eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-fluent-bit"
+            eks.amazonaws.com/role-arn: "arn:aws:iam::187691954427:role/assura-demo-fluent-bit"
         config:
           outputs: |
             [OUTPUT]

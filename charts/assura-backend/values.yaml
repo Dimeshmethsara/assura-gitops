@@ -1,13 +1,13 @@
 replicaCount: 2
 
 image:
-  repository: CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/assura-demo-backend
+  repository: 187691954427.dkr.ecr.us-east-1.amazonaws.com/assura-demo-backend
   # tag comes from values-image.yaml — the one field Jenkins ever edits.
 
 serviceAccount:
   # CHANGE ME: see the note in assura-gitops/apps/01-external-secrets.yaml — same
   # one-time-per-account value, from assura-infra's iam_irsa.role_arns["backend"] output.
-  roleArn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/assura-demo-backend"
+  roleArn: "arn:aws:iam::187691954427:role/assura-demo-backend"
 
 resources:
   requests:
@@ -34,11 +34,11 @@ env:
 
 secretsManager:
   # ARN comes from assura-infra's rds.secret_arn output — ExternalSecretsOperator reads it.
-  dbCredentialsSecretArn: "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:assura-demo/db-credentials"
-  jwtSecretArn: "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:assura-demo/jwt"
+  dbCredentialsSecretArn: "arn:aws:secretsmanager:us-east-1:187691954427:secret:assura-demo/db-credentials-nYo584"
+  jwtSecretArn: "arn:aws:secretsmanager:us-east-1:187691954427:secret:assura-demo/jwt-nrRCuN"
 
 s3:
-  bucketName: "assura-demo-uploads-<AWS_ACCOUNT_ID>"
+  bucketName: "assura-demo-uploads-187691954427"
 
 hpa:
   minReplicas: 1

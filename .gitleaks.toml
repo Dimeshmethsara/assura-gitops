@@ -4,8 +4,8 @@ title = "assura-gitops gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Placeholder ARNs (CHANGE_ME/<AWS_ACCOUNT_ID>) are not real secrets; real values never live in this repo — see README.md"
+description = "Placeholder ARNs (CHANGE_ME/187691954427) are not real secrets; real values never live in this repo — see README.md"
 regexes = [
-  '''<AWS_ACCOUNT_ID>''',
+  '''187691954427''',
   '''CHANGE_ME''',
 ]

@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/assura-demo-frontend
+  repository: 187691954427.dkr.ecr.us-east-1.amazonaws.com/assura-demo-frontend
   # tag comes from values-image.yaml — the one field Jenkins ever edits.
 
 resources:
