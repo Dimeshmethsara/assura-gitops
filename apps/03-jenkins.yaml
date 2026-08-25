@@ -131,15 +131,21 @@ spec:
           serviceAccount: "jenkins-agent"
         persistence:
           size: 8Gi
-      extraObjects:
-        - apiVersion: v1
-          kind: ServiceAccount
-          metadata:
-            name: jenkins-agent
-            namespace: jenkins-agents
-            annotations:
-              # CHANGE ME: see the note in 01-external-secrets.yaml — same one-time-per-account value.
-              eks.amazonaws.com/role-arn: "arn:aws:iam::187691954427:role/assura-demo-jenkins-agent"
+        # Indented to 8 spaces so it sits INSIDE the `values: |` block above. At 6 spaces it was a
+        # sibling of `values:` under `helm:`, where ArgoCD's Application schema has no such field,
+        # so the API server silently pruned it — the ServiceAccount was never created and
+        # root-app sat permanently OutOfSync (git had a key the live object could never keep).
+        # Silent, because pruning an unknown field is not an error: the only visible symptom was
+        # the sync status. The agent podTemplates above all set serviceAccount: "jenkins-agent",
+        # so without this every CI build would fail to start its pod.
+        extraObjects:
+          - apiVersion: v1
+            kind: ServiceAccount
+            metadata:
+              name: jenkins-agent
+              namespace: jenkins-agents
+              annotations:
+                eks.amazonaws.com/role-arn: "arn:aws:iam::187691954427:role/assura-demo-jenkins-agent"
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins
