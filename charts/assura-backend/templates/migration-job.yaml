@@ -1,16 +1,29 @@
-# Runs the same image with MIGRATE_ONLY=true as a Helm pre-upgrade/pre-install hook — exactly
-# one runner applies pending EF Core migrations before the Deployment above rolls, eliminating
-# the race from every replica auto-migrating on boot (see AssuraBackend Phase 1 changes).
+# Runs the same image with MIGRATE_ONLY=true — exactly one runner applies pending EF Core
+# migrations before the Deployment rolls, eliminating the race from every replica auto-migrating
+# on boot (see AssuraBackend Phase 1 changes).
+#
+# An ArgoCD Sync hook rather than a Helm pre-install/pre-upgrade hook. Helm hooks map to ArgoCD's
+# PreSync phase, which runs strictly BEFORE any normal resource is applied — so a Helm-hook Job
+# could never see the ServiceAccount and Secrets it depends on, which are ordinary managed
+# resources. Confirmed live as two consecutive failures: first "serviceaccount not found", then
+# CreateContainerConfigError once the SA was created by hand but the Secrets still weren't.
+# Sync-phase hooks respect sync-waves, so this lands after waves -4/-3/-2 below it.
+#
+# A hook (not a plain resource) because Job.spec is immutable: re-applying an unchanged Job on
+# every sync would fail. BeforeHookCreation deletes the prior run first, making re-sync idempotent.
 apiVersion: batch/v1
 kind: Job
 metadata:
+  # .Release.Revision is always 1 under ArgoCD (it renders with `helm template`, not `helm
+  # install`), so this name is effectively static — the delete policy below, not the name, is
+  # what makes repeat runs work.
   name: assura-backend-migrate-{{ .Release.Revision }}
   labels:
     {{- include "assura-backend.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
-    "helm.sh/hook-weight": "0"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   backoffLimit: 2
   template:

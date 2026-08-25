@@ -1,0 +1,31 @@
+# EKS does NOT ship a default StorageClass. The in-tree `gp2` class EKS creates is not marked
+# default and uses the deprecated `kubernetes.io/aws-ebs` provisioner, so any PVC that omits
+# storageClassName — which is most Helm charts, including Jenkins — binds to nothing and sits
+# Pending forever. Confirmed live: `kubectl get pvc -A` showed jenkins/jenkins Pending with an
+# empty STORAGECLASS column, and jenkins-0 stuck Pending with "pod has unbound immediate
+# PersistentVolumeClaims" for 30+ minutes.
+#
+# This declares gp3 (cheaper and faster than gp2 at the same size, and the current AWS default
+# generation) as THE cluster default, served by the EBS CSI driver that assura-infra already
+# installs as an EKS addon with its own IRSA role.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+# WaitForFirstConsumer, not Immediate: the volume is created in the same AZ as the pod that
+# ends up scheduled. With Immediate binding on a multi-AZ node group, EBS can provision the
+# volume in one AZ and the scheduler place the pod in the other — an unschedulable deadlock,
+# since EBS volumes cannot cross AZs.
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  type: gp3
+  # Encryption-at-rest using the AWS-managed aws/ebs key rather than this project's CMK: the
+  # CMK would additionally require kms:CreateGrant/Decrypt on the EBS CSI driver's IRSA role,
+  # and getting that wrong fails volume provisioning cluster-wide. The managed key still gives
+  # encryption at rest; the CMK stays scoped to RDS/S3/Secrets Manager where it is wired up.
+  encrypted: "true"

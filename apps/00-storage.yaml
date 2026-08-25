@@ -1,0 +1,22 @@
+# Wave 0, alongside platform-namespaces: the default StorageClass has to exist before any chart
+# that provisions a PersistentVolumeClaim is synced. Jenkins (wave 3) is the first such chart,
+# but keeping this at wave 0 means nothing downstream ever has to think about ordering.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-storage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Dimeshmethsara/assura-gitops.git
+    targetRevision: main
+    path: manifests/storage
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
